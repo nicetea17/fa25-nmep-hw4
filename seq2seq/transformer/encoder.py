@@ -79,7 +79,8 @@ class EncoderLayer(nn.Module):
         self.value_length = value_length
 
         # Define any layers you'll need in the forward pass
-        raise NotImplementedError("Need to implement vocab initialization.")
+        self.mha = MultiHeadAttention(num_heads, embedding_dim, qk_length, value_length)
+        self.ff = FeedForwardNN(embedding_dim, ffn_hidden_dim)
 
     def forward(
         self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -87,7 +88,12 @@ class EncoderLayer(nn.Module):
         """
         The forward pass of the EncoderLayer.
         """
-        raise NotImplementedError("Need to implement forward pass of EncoderLayer.")
+        m = self.mha(x)
+        l1 = nn.LayerNorm(x+m)
+        f = self.ff(l1)
+        l2 = nn.LayerNorm(l1+f)
+        return l2
+
 
 
 class Encoder(nn.Module):

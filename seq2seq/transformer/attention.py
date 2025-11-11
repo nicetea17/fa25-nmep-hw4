@@ -106,7 +106,10 @@ class MultiHeadAttention(nn.Module):
         #softmax(Q*KT/sqrt(qk_length)) * V
         self.softmax = nn.Softmax(dim=-1)
         KT = K.transpose(2,3)
-        return torch.matmul(self.softmax(torch.matmul(Q, KT)) / ((self.qk_length)**(1/2)), V)
+        qkt = torch.matmul(Q, KT)
+        if mask is not None:
+            qkt.masked_fill_(mask,-float("inf"))
+        return torch.matmul(self.softmax(qkt) / ((self.qk_length)**(1/2)), V)
 
 
     def forward(
@@ -131,13 +134,17 @@ class MultiHeadAttention(nn.Module):
         Q = self.q(Q)
         K = self.k(K)
         V = self.v(V)
+
         Q = self.split_heads(Q, self.qk_length)
         K = self.split_heads(K, self.qk_length)
         V = self.split_heads(V, self.value_length)
         #print("Q SIZE:", Q.size())
 
+        if mask is not None:
+            atMatrix = self.scaled_dot_product_attention(Q, K, V, mask)
+        else:
+            atMatrix = self.scaled_dot_product_attention(Q, K, V)
 
-        atMatrix = self.scaled_dot_product_attention(Q, K, V)
 
         concat = self.combine_heads(atMatrix)
 

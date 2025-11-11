@@ -44,9 +44,12 @@ class DecoderLayer(nn.Module):
         self.ffn_hidden_dim = ffn_hidden_dim
         self.qk_length = qk_length
         self.value_length = value_length
+        self.dropout = dropout
 
         # Define any layers you'll need in the forward pass
-        raise NotImplementedError("Need to implement DecoderLayer layers")
+        self.mha = MultiHeadAttention(num_heads, embedding_dim, qk_length, value_length)
+        self.ff = FeedForwardNN(embedding_dim, ffn_hidden_dim)
+        self.ln = nn.LayerNorm(self.embedding_dim)
 
 
     def forward(
@@ -59,7 +62,20 @@ class DecoderLayer(nn.Module):
         """
         The forward pass of the DecoderLayer.
         """
-        raise NotImplementedError("Need to implement DecoderLayer forward pass.")
+        m = self.mha(x,x,x,tgt_mask)
+        l1 = self.ln(x+m)
+        f = self.ff(l1)
+        l2 = self.ln(l1+f)
+
+        if enc_x is not None:
+            m = self.mha(l2,enc_x,enc_x, src_mask)
+            l1 = nn.LayerNorm(self.embedding_dim)
+            l1 = l1(x+m)
+            f = self.ff(l1)
+            l2 = nn.LayerNorm(self.embedding_dim)
+            l2 = l2(l1+f)
+
+        return l2
 
 
 class Decoder(nn.Module):
@@ -102,6 +118,7 @@ class Decoder(nn.Module):
 
         self.qk_length = qk_length
         self.value_length = value_length
+        self.dropout = dropout
 
         # Define any layers you'll need in the forward pass
         # Hint: You may find `ModuleList`s useful for creating
@@ -111,7 +128,11 @@ class Decoder(nn.Module):
         # so we'll have to first create some kind of embedding
         # and then use the other layers we've implemented to
         # build out the Transformer decoder.
-        raise NotImplementedError("Need to implement Decoder layers")
+        self.emb = nn.Embedding(self.vocab_size, self.embedding_dim)
+
+        self.layers = nn.ModuleList([DecoderLayer(self.num_heads,self.embedding_dim, self.ffn_hidden_dim,self.qk_length,self.value_length, self.dropout) for _ in range(self.num_layers)])
+
+        self.lastlinear = nn.Linear(self.embedding_dim, self.vocab_size)
 
     def forward(
         self,
@@ -123,4 +144,11 @@ class Decoder(nn.Module):
         """
         The forward pass of the Decoder.
         """
-        raise NotImplementedError("Need to implement forward pass of Decoder")
+        x = self.emb(x)
+
+        for layer in self.layers:
+            x = layer(x,enc_x, tgt_mask, src_mask)
+        x = self.lastlinear(x)
+        sm = nn.Softmax(dim=-1)
+        x = sm(x)
+        return x

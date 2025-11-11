@@ -81,6 +81,7 @@ class EncoderLayer(nn.Module):
         # Define any layers you'll need in the forward pass
         self.mha = MultiHeadAttention(num_heads, embedding_dim, qk_length, value_length)
         self.ff = FeedForwardNN(embedding_dim, ffn_hidden_dim)
+        self.ln = nn.LayerNorm(self.embedding_dim)
 
     def forward(
         self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -89,11 +90,9 @@ class EncoderLayer(nn.Module):
         The forward pass of the EncoderLayer.
         """
         m = self.mha(x,x,x)
-        l1 = nn.LayerNorm(self.embedding_dim)
-        l1 = l1(x+m)
+        l1 = self.ln(x+m)
         f = self.ff(l1)
-        l2 = nn.LayerNorm(self.embedding_dim)
-        l2 = l2(l1+f)
+        l2 = self.ln(l1+f)
         return l2
 
 

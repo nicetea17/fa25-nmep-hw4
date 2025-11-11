@@ -36,9 +36,10 @@ class MultiHeadAttention(nn.Module):
         # Define any layers you'll need in the forward pass
         # (hint: number of Linear layers needed != 3)
         #Q, K, V, back into (B, T, C)
-        self.q = nn.Linear(embedding_dim, embedding_dim)
-        self.k = nn.Linear(embedding_dim, embedding_dim)
-        self.v = nn.Linear(embedding_dim, embedding_dim)
+        #print("EMBEDDING DIMMMM:", embedding_dim, self.qk_length. self.value_length)
+        self.q = nn.Linear(embedding_dim, self.num_heads*self.qk_length)
+        self.k = nn.Linear(embedding_dim, self.num_heads*self.qk_length)
+        self.v = nn.Linear(embedding_dim, self.num_heads*self.value_length)
         self.lastLayer = nn.Linear(embedding_dim, embedding_dim)
 
     def split_heads(self, x: torch.Tensor, vec_length: int) -> torch.Tensor:
@@ -61,10 +62,8 @@ class MultiHeadAttention(nn.Module):
             f"Input tensor does not have the correct shape for splitting. These are the dims:{B} {T} {C} {vec_length} {self.num_heads}"
         )
 
-        print("SDJFKLJSDIFJSKDJFKDJSLKFSJFKJDSKF:", vec_length, self.qk_length)
-
-        x = x.view(B,T,vec_length, self.num_heads)
-        torch.permute(x,(0,3,1,2))
+        #print("SDJFKLJSDIFJSKDJFKDJSLKFSJFKJDSKF:", vec_length, self.qk_length)
+        x = x.view(B, T ,self.num_heads, vec_length).transpose(1,2)
         return x
         
 
@@ -82,8 +81,9 @@ class MultiHeadAttention(nn.Module):
         """
         B, num_heads, T, vec_length = x.size()
 
-        torch.permute(x,(0,2,3,1))
+        torch.permute(x,(0,2,1,3))
         x = x.view(B, T, num_heads*vec_length)
+       # print("COMBINED HEADSSSS", x.size())
         return x
 
     def scaled_dot_product_attention(
@@ -104,8 +104,9 @@ class MultiHeadAttention(nn.Module):
             mask: Optional boolean torch.Tensor, broadcastable to (B, num_heads, T, T).
         """
         #softmax(Q*KT/sqrt(qk_length)) * V
-        KT = torch.transpose(K, 2, 3)
-        return torch.matmul(torch.softmax(torch.matmul(Q, KT)) / ((self.qk_length)**(1/2)), V)
+        self.softmax = nn.Softmax(dim=-1)
+        KT = K.transpose(2,3)
+        return torch.matmul(self.softmax(torch.matmul(Q, KT)) / ((self.qk_length)**(1/2)), V)
 
 
     def forward(
@@ -127,13 +128,14 @@ class MultiHeadAttention(nn.Module):
         Returns:
             torch.Tensor of shape (B, T, C)
         """
-        Q = self.split_heads(Q, self.qk_length//self.num_heads)
-        K = self.split_heads(K, self.qk_length//self.num_heads)
-        V = self.split_heads(V, self.value_length//self.num_heads)
-
         Q = self.q(Q)
         K = self.k(K)
         V = self.v(V)
+        Q = self.split_heads(Q, self.qk_length)
+        K = self.split_heads(K, self.qk_length)
+        V = self.split_heads(V, self.value_length)
+        print("Q SIZE:", Q.size())
+
 
         atMatrix = self.scaled_dot_product_attention(Q, K, V)
 

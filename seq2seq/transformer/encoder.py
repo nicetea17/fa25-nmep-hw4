@@ -88,7 +88,7 @@ class EncoderLayer(nn.Module):
         """
         The forward pass of the EncoderLayer.
         """
-        m = self.mha(x)
+        m = self.mha(x,x,x)
         l1 = nn.LayerNorm(x+m)
         f = self.ff(l1)
         l2 = nn.LayerNorm(l1+f)
@@ -137,6 +137,7 @@ class Encoder(nn.Module):
 
         self.qk_length = qk_length
         self.value_length = value_length
+        self.dropout = dropout
 
         # Define any layers you'll need in the forward pass
         # Hint: You may find `ModuleList`s useful for creating
@@ -146,12 +147,19 @@ class Encoder(nn.Module):
         # so we'll have to first create some kind of embedding
         # and then use the other layers we've implemented to
         # build out the Transformer encoder.
-        raise NotImplementedError("Need to implement Encoder layers")
+        self.emb = nn.Embedding(self.vocab_size, self.embedding_dim)
+
+        self.layers = nn.ModuleList([EncoderLayer(self.num_heads,self.embedding_dim, self.ffn_hidden_dim,self.qk_length,self.value_length, self.dropout) for _ in range(self.num_layers)])
 
 
     def forward(self, x: torch.Tensor, src_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        """
+        """f
         The forward pass of the Encoder.
         """
-        raise NotImplementedError("Need to implement forward pass of Encoder")
+        x = self.emb(x)
+        
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
 

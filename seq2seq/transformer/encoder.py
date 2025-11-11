@@ -89,9 +89,11 @@ class EncoderLayer(nn.Module):
         The forward pass of the EncoderLayer.
         """
         m = self.mha(x,x,x)
-        l1 = nn.LayerNorm(x+m)
+        l1 = nn.LayerNorm(self.embedding_dim)
+        l1 = l1(x+m)
         f = self.ff(l1)
-        l2 = nn.LayerNorm(l1+f)
+        l2 = nn.LayerNorm(self.embedding_dim)
+        l2 = l2(l1+f)
         return l2
 
 

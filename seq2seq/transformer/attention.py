@@ -40,7 +40,7 @@ class MultiHeadAttention(nn.Module):
         self.q = nn.Linear(embedding_dim, self.num_heads*self.qk_length)
         self.k = nn.Linear(embedding_dim, self.num_heads*self.qk_length)
         self.v = nn.Linear(embedding_dim, self.num_heads*self.value_length)
-        self.lastLayer = nn.Linear(embedding_dim, embedding_dim)
+        self.lastLayer = nn.Linear(self.num_heads*embedding_dim, embedding_dim)
 
     def split_heads(self, x: torch.Tensor, vec_length: int) -> torch.Tensor:
         """
@@ -134,7 +134,7 @@ class MultiHeadAttention(nn.Module):
         Q = self.split_heads(Q, self.qk_length)
         K = self.split_heads(K, self.qk_length)
         V = self.split_heads(V, self.value_length)
-        print("Q SIZE:", Q.size())
+        #print("Q SIZE:", Q.size())
 
 
         atMatrix = self.scaled_dot_product_attention(Q, K, V)
